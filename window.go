@@ -8,6 +8,7 @@ import (
 	"github.com/asticode/go-astitools/context"
 	"github.com/asticode/go-astitools/url"
 	"github.com/pkg/errors"
+	//"log"
 )
 
 // Window event names
@@ -23,6 +24,7 @@ const (
 	EventNameWindowCmdHide                     = "window.cmd.hide"
 	EventNameWindowCmdLog                      = "window.cmd.log"
 	EventNameWindowCmdMaximize                 = "window.cmd.maximize"
+	EventNameWindowCmdIsMaximized              = "window.cmd.ismaximized"
 	EventNameWindowCmdSetFullscreen            = "window.cmd.setfullscreen"
 	eventNameWindowCmdMessage                  = "window.cmd.message"
 	eventNameWindowCmdMessageCallback          = "window.cmd.message.callback"
@@ -40,6 +42,7 @@ const (
 	EventNameWindowEventFocus                  = "window.event.focus"
 	EventNameWindowEventHide                   = "window.event.hide"
 	EventNameWindowEventMaximize               = "window.event.maximize"
+	EventNameWindowEventIsMaximized            = "window.event.ismaximized"
 	EventNameWindowEventSetFullscreen          = "window.event.setfullscreen"
 	eventNameWindowEventMessage                = "window.event.message"
 	eventNameWindowEventMessageCallback        = "window.event.message.callback"
@@ -99,6 +102,7 @@ type WindowOptions struct {
 	Kiosk                  *bool           `json:"kiosk,omitempty"`
 	MaxHeight              *int            `json:"maxHeight,omitempty"`
 	Maximizable            *bool           `json:"maximizable,omitempty"`
+	Maximized              *bool           `json:"maximized,omitempty"`
 	MaxWidth               *int            `json:"maxWidth,omitempty"`
 	MinHeight              *int            `json:"minHeight,omitempty"`
 	Minimizable            *bool           `json:"minimizable,omitempty"`
@@ -330,6 +334,24 @@ func (w *Window) Maximize() (err error) {
 		return
 	}
 	_, err = synchronousEvent(w.c, w, w.w, Event{Name: EventNameWindowCmdMaximize, TargetID: w.id}, EventNameWindowEventMaximize)
+	return
+}
+
+// check the window is maximized
+func (w *Window) IsMaximized() (is bool, err error) {
+	if err = w.isActionable(); err != nil {
+		return
+	}
+	var be Event
+	be, err = synchronousEvent(w.c, w, w.w,
+		Event{
+			Name:     EventNameWindowCmdIsMaximized,
+			TargetID: w.id,
+		},
+		EventNameWindowEventIsMaximized)
+	if err == nil && be.WindowOptions != nil {
+		is = *be.WindowOptions.Maximized
+	}
 	return
 }
 
