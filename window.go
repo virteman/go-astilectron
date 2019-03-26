@@ -23,6 +23,7 @@ const (
 	EventNameWindowCmdHide                     = "window.cmd.hide"
 	EventNameWindowCmdLog                      = "window.cmd.log"
 	EventNameWindowCmdMaximize                 = "window.cmd.maximize"
+	EventNameWindowCmdSetFullscreen            = "window.cmd.setfullscreen"
 	eventNameWindowCmdMessage                  = "window.cmd.message"
 	eventNameWindowCmdMessageCallback          = "window.cmd.message.callback"
 	EventNameWindowCmdMinimize                 = "window.cmd.minimize"
@@ -39,6 +40,7 @@ const (
 	EventNameWindowEventFocus                  = "window.event.focus"
 	EventNameWindowEventHide                   = "window.event.hide"
 	EventNameWindowEventMaximize               = "window.event.maximize"
+	EventNameWindowEventSetFullscreen          = "window.event.setfullscreen"
 	eventNameWindowEventMessage                = "window.event.message"
 	eventNameWindowEventMessageCallback        = "window.event.message.callback"
 	EventNameWindowEventMinimize               = "window.event.minimize"
@@ -328,6 +330,24 @@ func (w *Window) Maximize() (err error) {
 		return
 	}
 	_, err = synchronousEvent(w.c, w, w.w, Event{Name: EventNameWindowCmdMaximize, TargetID: w.id}, EventNameWindowEventMaximize)
+	return
+}
+
+// fullscreen the window
+func (w *Window) SetFullScreen(fullscreen bool) (err error) {
+	if err = w.isActionable(); err != nil {
+		return
+	}
+	w.m.Lock()
+	w.o.Fullscreen = PtrBool(fullscreen)
+	_, err = synchronousEvent(w.c, w, w.w,
+		Event{
+			Name:     EventNameWindowCmdSetFullscreen,
+			TargetID: w.id,
+			WindowOptions: &WindowOptions{
+				Fullscreen: w.o.Fullscreen,
+			},
+		}, EventNameWindowEventSetFullscreen)
 	return
 }
 
