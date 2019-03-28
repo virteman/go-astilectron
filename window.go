@@ -223,7 +223,6 @@ func newWindow(o Options, p Paths, url string, wo *WindowOptions, c *asticontext
 		w.o.Show = PtrBool(true)
 		return
 	})
-
 	// Parse url
 	if w.url, err = astiurl.Parse(url); err != nil {
 		err = errors.Wrapf(err, "parsing url %s failed", url)
@@ -443,6 +442,17 @@ func (w *Window) OnMessage(l ListenerMessage) {
 			}
 			return
 		})
+	})
+}
+
+// ListenerMessage represents a message listener executed when receiving a message from the JS
+type ListenerBounds func(m *RectangleOptions) (v interface{})
+
+// OnMove event
+func (w *Window) OnMove(l ListenerBounds) {
+	w.On(EventNameWindowEventMove, func(i Event) (deleteListener bool) {
+		l(i.Bounds)
+		return
 	})
 }
 
