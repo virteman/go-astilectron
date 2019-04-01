@@ -19,6 +19,7 @@ const (
 	EventNameWindowCmdCenter                   = "window.cmd.center"
 	EventNameWindowCmdClose                    = "window.cmd.close"
 	EventNameWindowCmdCreate                   = "window.cmd.create"
+	EventNameWindowCmdCreateBrowserView        = "window.cmd.createbrowserview"
 	EventNameWindowCmdDestroy                  = "window.cmd.destroy"
 	EventNameWindowCmdFocus                    = "window.cmd.focus"
 	EventNameWindowCmdHide                     = "window.cmd.hide"
@@ -31,6 +32,9 @@ const (
 	EventNameWindowCmdMinimize                 = "window.cmd.minimize"
 	EventNameWindowCmdMove                     = "window.cmd.move"
 	EventNameWindowCmdResize                   = "window.cmd.resize"
+	EventNameWindowCmdSetBounds                = "window.cmd.setbounds"
+	EventNameWindowCmdSetAutoResize            = "window.cmd.setautoresize"
+	EventNameWindowCmdGetBounds                = "window.cmd.getbounds"
 	EventNameWindowCmdRestore                  = "window.cmd.restore"
 	EventNameWindowCmdShow                     = "window.cmd.show"
 	EventNameWindowCmdUnmaximize               = "window.cmd.unmaximize"
@@ -50,6 +54,9 @@ const (
 	EventNameWindowEventMove                   = "window.event.move"
 	EventNameWindowEventReadyToShow            = "window.event.ready.to.show"
 	EventNameWindowEventResize                 = "window.event.resize"
+	EventNameWindowEventSetBounds              = "window.event.setbounds"
+	EventNameWindowEventSetAutoResize          = "window.event.setautoresize"
+	EventNameWindowEventGetBounds              = "window.event.getbounds"
 	EventNameWindowEventRestore                = "window.event.restore"
 	EventNameWindowEventShow                   = "window.event.show"
 	EventNameWindowEventUnmaximize             = "window.event.unmaximize"
@@ -120,6 +127,8 @@ type WindowOptions struct {
 	Width                  *int            `json:"width,omitempty"`
 	X                      *int            `json:"x,omitempty"`
 	Y                      *int            `json:"y,omitempty"`
+	BrowserView            *bool           `json:"browserView,omitempty"`
+	ParentID               *string         `json:"parentID,omitempty"`
 
 	// Additional options
 	Custom *WindowCustomOptions `json:"custom,omitempty"`
@@ -279,6 +288,45 @@ func (w *Window) Create() (err error) {
 		return
 	}
 	_, err = synchronousEvent(w.c, w, w.w, Event{Name: EventNameWindowCmdCreate, SessionID: w.Session.id, TargetID: w.id, URL: w.url.String(), WindowOptions: w.o}, EventNameWindowEventDidFinishLoad)
+	return
+}
+
+// Create creates the browser window
+// We wait for EventNameWindowEventDidFinishLoad since we need the web content to be fully loaded before being able to
+// send messages to it
+func (w *Window) CreateBrowserView(pw *Window) (err error) {
+	if err = w.isActionable(); err != nil {
+		return
+	}
+	if pw == nil {
+		err = errors.New("parent window has not to be nil")
+		return
+	}
+	// set parent id of this browser view
+	w.o.ParentID = PtrStr(pw.id)
+	w.o.BrowserView = PtrBool(true)
+
+	_, err = synchronousEvent(w.c, w, w.w,
+		Event{
+			Name:          EventNameWindowCmdCreateBrowserView,
+			SessionID:     w.Session.id,
+			TargetID:      w.id,
+			URL:           w.url.String(),
+			WindowOptions: w.o,
+		}, EventNameWindowEventDidFinishLoad)
+	// set bounds
+	if err == nil {
+		w.SetBounds(&RectangleOptions{
+			PositionOptions: PositionOptions{
+				X: w.o.X,
+				Y: w.o.Y,
+			},
+			SizeOptions: SizeOptions{
+				Height: w.o.Height,
+				Width:  w.o.Width,
+			},
+		})
+	}
 	return
 }
 
@@ -526,5 +574,50 @@ func (w *Window) Unmaximize() (err error) {
 		return
 	}
 	_, err = synchronousEvent(w.c, w, w.w, Event{Name: EventNameWindowCmdUnmaximize, TargetID: w.id}, EventNameWindowEventUnmaximize)
+	return
+}
+
+// setBounds the window or browserview
+func (w *Window) SetBounds(bounds *RectangleOptions) (err error) {
+	if err = w.isActionable(); err != nil {
+		return
+	}
+	_, err = synchronousEvent(w.c, w, w.w,
+		Event{
+			Name:     EventNameWindowCmdSetBounds,
+			TargetID: w.id,
+			Bounds:   bounds,
+		}, EventNameWindowEventSetBounds)
+	return
+}
+
+// getBounds of the window or browserview
+func (w *Window) GetBounds() (bounds *RectangleOptions, err error) {
+	if err = w.isActionable(); err != nil {
+		return
+	}
+	var be Event
+	be, err = synchronousEvent(w.c, w, w.w,
+		Event{
+			Name:     EventNameWindowCmdGetBounds,
+			TargetID: w.id,
+		}, EventNameWindowEventGetBounds)
+	if err == nil && be.Bounds != nil {
+		bounds = be.Bounds
+	}
+	return
+}
+
+// browser view setAutoResize
+func (w *Window) SetAutoResize(aResize *AutoResizeOptions) (err error) {
+	if err = w.isActionable(); err != nil {
+		return
+	}
+	_, err = synchronousEvent(w.c, w, w.w,
+		Event{
+			Name:              EventNameWindowCmdSetAutoResize,
+			TargetID:          w.id,
+			AutoResizeOptions: aResize,
+		}, EventNameWindowEventSetAutoResize)
 	return
 }

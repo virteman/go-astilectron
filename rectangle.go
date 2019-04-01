@@ -33,3 +33,9 @@ type RectangleOptions struct {
 	PositionOptions
 	SizeOptions
 }
+
+// browser view setAutoResize options
+type AutoResizeOptions struct {
+	Height *bool `json:"height,omitempty"`
+	Width  *bool `json:"width,omitempty"`
+}

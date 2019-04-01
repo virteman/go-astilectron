@@ -24,6 +24,7 @@ type Event struct {
 	Badge               string               `json:"badge,omitempty"`
 	BounceType          string               `json:"bounceType,omitempty"`
 	Bounds              *RectangleOptions    `json:"bounds,omitempty"`
+	AutoResizeOptions   *AutoResizeOptions   `json:"autoResizeOptions,omitempty"`
 	CallbackID          string               `json:"callbackId,omitempty"`
 	Displays            *EventDisplays       `json:"displays,omitempty"`
 	FilePath            string               `json:"filePath,omitempty"`
