@@ -63,6 +63,7 @@ const (
 	EventNameWindowEventUnresponsive           = "window.event.unresponsive"
 	EventNameWindowEventDidGetRedirectRequest  = "window.event.did.get.redirect.request"
 	EventNameWindowEventWillNavigate           = "window.event.will.navigate"
+	EventNameWindowEventNewWindow              = "window.event.newwindow"
 )
 
 // Title bar styles
@@ -620,4 +621,26 @@ func (w *Window) SetAutoResize(aResize *AutoResizeOptions) (err error) {
 			AutoResizeOptions: aResize,
 		}, EventNameWindowEventSetAutoResize)
 	return
+}
+
+//
+type ListenerEvent func(data interface{}) (v interface{})
+
+// On event
+func (w *Window) OnEvent(eventName string, l ListenerEvent, once bool) {
+	w.On(eventName, func(i Event) (deleteListener bool) {
+		l(i)
+		deleteListener = once
+		return
+	})
+}
+
+// OnNewWindow event
+func (w *Window) OnNewWindow(l ListenerEvent) {
+	w.OnEvent(EventNameWindowEventNewWindow, l, false)
+}
+
+// OnReadyToShow event
+func (w *Window) OnReadyToShow(l ListenerEvent) {
+	w.OnEvent(EventNameWindowEventReadyToShow, l, false)
 }
