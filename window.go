@@ -27,6 +27,7 @@ const (
 	EventNameWindowCmdMaximize                 = "window.cmd.maximize"
 	EventNameWindowCmdIsMaximized              = "window.cmd.ismaximized"
 	EventNameWindowCmdSetFullscreen            = "window.cmd.setfullscreen"
+	EventNameWindowCmdSetFrameShow             = "window.cmd.setframeshow"
 	eventNameWindowCmdMessage                  = "window.cmd.message"
 	eventNameWindowCmdMessageCallback          = "window.cmd.message.callback"
 	EventNameWindowCmdMinimize                 = "window.cmd.minimize"
@@ -48,6 +49,7 @@ const (
 	EventNameWindowEventMaximize               = "window.event.maximize"
 	EventNameWindowEventIsMaximized            = "window.event.ismaximized"
 	EventNameWindowEventSetFullscreen          = "window.event.setfullscreen"
+	EventNameWindowEventSetFrameShow           = "window.event.setframeshow"
 	eventNameWindowEventMessage                = "window.event.message"
 	eventNameWindowEventMessageCallback        = "window.event.message.callback"
 	EventNameWindowEventMinimize               = "window.event.minimize"
@@ -418,6 +420,24 @@ func (w *Window) SetFullScreen(fullscreen bool) (err error) {
 				Fullscreen: w.o.Fullscreen,
 			},
 		}, EventNameWindowEventSetFullscreen)
+	return
+}
+
+// set frame show or not
+func (w *Window) SetFrameShow(showframe bool) (err error) {
+	if err = w.isActionable(); err != nil {
+		return
+	}
+	w.m.Lock()
+	w.o.Frame = PtrBool(showframe)
+	_, err = synchronousEvent(w.c, w, w.w,
+		Event{
+			Name:     EventNameWindowCmdSetFrameShow,
+			TargetID: w.id,
+			WindowOptions: &WindowOptions{
+				Frame: w.o.Frame,
+			},
+		}, EventNameWindowEventSetFrameShow)
 	return
 }
 
