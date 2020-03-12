@@ -1,7 +1,7 @@
 [![GoReportCard](http://goreportcard.com/badge/github.com/asticode/go-astilectron)](http://goreportcard.com/report/github.com/asticode/go-astilectron)
 [![GoDoc](https://godoc.org/github.com/asticode/go-astilectron?status.svg)](https://godoc.org/github.com/asticode/go-astilectron)
 [![Travis](https://travis-ci.org/asticode/go-astilectron.svg?branch=master)](https://travis-ci.org/asticode/go-astilectron#)
-[![Coveralls](https://coveralls.io/repos/github/asticode/go-astilectron/badge.svg?branch=master)](https://coveralls.io/repos/github/asticode/go-astilectron)
+[![Coveralls](https://coveralls.io/repos/github/asticode/go-astilectron/badge.svg?branch=master)](https://coveralls.io/github/asticode/go-astilectron)
 
 Thanks to `go-astilectron` build cross platform GUI apps with GO and HTML/JS/CSS. It is the official GO bindings of [astilectron](https://github.com/asticode/astilectron) and is powered by [Electron](https://github.com/electron/electron).
 
@@ -11,6 +11,8 @@ To see a minimal Astilectron app, checkout out the [demo](https://github.com/ast
 
 It uses the [bootstrap](https://github.com/asticode/go-astilectron-bootstrap) and the [bundler](https://github.com/asticode/go-astilectron-bundler).
 
+If you're looking for a minimalistic example, run `go run example/main.go -v`.
+
 # Real-life examples
 
 Here's a list of awesome projects using `go-astilectron` (if you're using `go-astilectron` and want your project to be listed here please submit a PR):
@@ -19,7 +21,6 @@ Here's a list of awesome projects using `go-astilectron` (if you're using `go-as
 - [GroupMatcher](https://github.com/veecue/GroupMatcher) Program to allocate persons to groups while trying to fulfill all the given wishes as good as possible
 - [ipeye-onvif](https://github.com/deepch/ipeye-onvif) ONVIF Search Tool
 - [Stellite GUI Miner](https://github.com/stellitecoin/GUI-miner) An easy to use GUI cryptocurrency miner for Stellite
-
 
 # Bootstrap
 
@@ -51,11 +52,13 @@ To import `go-astilectron` run:
 
 ```go
 // Initialize astilectron
-var a, _ = astilectron.New(astilectron.Options{
+var a, _ = astilectron.New(log.New(os.StdErr, "", 0), astilectron.Options{
     AppName: "<your app name>",
     AppIconDefaultPath: "<your .png icon>", // If path is relative, it must be relative to the data directory
     AppIconDarwinPath:  "<your .icns icon>", // Same here
     BaseDirectoryPath: "<where you want the provisioner to install the dependencies>",
+    VersionAstilectron: "<version of Astilectron to utilize such as `0.33.0`>",
+    VersionElectron: "<version of Electron to utilize such as `4.0.1` | `6.1.2`>",
 })
 defer a.Close()
 
@@ -81,9 +84,9 @@ The majority of methods are synchrone which means that when executing them `go-a
 ```go
 // Create a new window
 var w, _ = a.NewWindow("http://127.0.0.1:4000", &astilectron.WindowOptions{
-    Center: astilectron.PtrBool(true),
-    Height: astilectron.PtrInt(600),
-    Width:  astilectron.PtrInt(600),
+    Center: astikit.BoolPtr(true),
+    Height: astikit.IntPtr(600),
+    Width:  astikit.IntPtr(600),
 })
 w.Create()
 ```
@@ -109,13 +112,13 @@ w.CloseDevTools()
 ```go
 // Add a listener on Astilectron
 a.On(astilectron.EventNameAppCrash, func(e astilectron.Event) (deleteListener bool) {
-    astilog.Error("App has crashed")
+    log.Println("App has crashed")
     return
 })
 
 // Add a listener on the window
 w.On(astilectron.EventNameWindowEventResize, func(e astilectron.Event) (deleteListener bool) {
-    astilog.Info("Window resized")
+    log.Println("Window resized")
     return
 })
 ```
@@ -161,7 +164,7 @@ w.SendMessage("hello", func(m *astilectron.EventMessage) {
         m.Unmarshal(&s)
 
         // Process message
-        astilog.Debugf("received %s", s)
+        log.Printf("received %s\n", s)
 })
 ```
 
@@ -225,41 +228,41 @@ if len(displays) > 1 {
 // You can do the same thing with a window
 var m = a.NewMenu([]*astilectron.MenuItemOptions{
     {
-        Label: astilectron.PtrStr("Separator"),
+        Label: astikit.StrPtr("Separator"),
         SubMenu: []*astilectron.MenuItemOptions{
-            {Label: astilectron.PtrStr("Normal 1")},
+            {Label: astikit.StrPtr("Normal 1")},
             {
-                Label: astilectron.PtrStr("Normal 2"),
+                Label: astikit.StrPtr("Normal 2"),
                 OnClick: func(e astilectron.Event) (deleteListener bool) {
-                    astilog.Info("Normal 2 item has been clicked")
+                    log.Println("Normal 2 item has been clicked")
                     return
                 },
             },
             {Type: astilectron.MenuItemTypeSeparator},
-            {Label: astilectron.PtrStr("Normal 3")},
+            {Label: astikit.StrPtr("Normal 3")},
         },
     },
     {
-        Label: astilectron.PtrStr("Checkbox"),
+        Label: astikit.StrPtr("Checkbox"),
         SubMenu: []*astilectron.MenuItemOptions{
-            {Checked: astilectron.PtrBool(true), Label: astilectron.PtrStr("Checkbox 1"), Type: astilectron.MenuItemTypeCheckbox},
-            {Label: astilectron.PtrStr("Checkbox 2"), Type: astilectron.MenuItemTypeCheckbox},
-            {Label: astilectron.PtrStr("Checkbox 3"), Type: astilectron.MenuItemTypeCheckbox},
+            {Checked: astikit.BoolPtr(true), Label: astikit.StrPtr("Checkbox 1"), Type: astilectron.MenuItemTypeCheckbox},
+            {Label: astikit.StrPtr("Checkbox 2"), Type: astilectron.MenuItemTypeCheckbox},
+            {Label: astikit.StrPtr("Checkbox 3"), Type: astilectron.MenuItemTypeCheckbox},
         },
     },
     {
-        Label: astilectron.PtrStr("Radio"),
+        Label: astikit.StrPtr("Radio"),
         SubMenu: []*astilectron.MenuItemOptions{
-            {Checked: astilectron.PtrBool(true), Label: astilectron.PtrStr("Radio 1"), Type: astilectron.MenuItemTypeRadio},
-            {Label: astilectron.PtrStr("Radio 2"), Type: astilectron.MenuItemTypeRadio},
-            {Label: astilectron.PtrStr("Radio 3"), Type: astilectron.MenuItemTypeRadio},
+            {Checked: astikit.BoolPtr(true), Label: astikit.StrPtr("Radio 1"), Type: astilectron.MenuItemTypeRadio},
+            {Label: astikit.StrPtr("Radio 2"), Type: astilectron.MenuItemTypeRadio},
+            {Label: astikit.StrPtr("Radio 3"), Type: astilectron.MenuItemTypeRadio},
         },
     },
     {
-        Label: astilectron.PtrStr("Roles"),
+        Label: astikit.StrPtr("Roles"),
         SubMenu: []*astilectron.MenuItemOptions{
-            {Label: astilectron.PtrStr("Minimize"), Role: astilectron.MenuItemRoleMinimize},
-            {Label: astilectron.PtrStr("Close"), Role: astilectron.MenuItemRoleClose},
+            {Label: astikit.StrPtr("Minimize"), Role: astilectron.MenuItemRoleMinimize},
+            {Label: astikit.StrPtr("Close"), Role: astilectron.MenuItemRoleClose},
         },
     },
 })
@@ -271,7 +274,7 @@ mi, _ := m.Item(1, 0)
 // Add listener manually
 // An OnClick listener has already been added in the options directly for another menu item
 mi.On(astilectron.EventNameMenuItemEventClicked, func(e astilectron.Event) bool {
-    astilog.Infof("Menu item has been clicked. 'Checked' status is now %t", *e.MenuItemOptions.Checked)
+    log.Printf("Menu item has been clicked. 'Checked' status is now %t\n", *e.MenuItemOptions.Checked)
     return false
 })
 
@@ -283,10 +286,10 @@ mi.SetChecked(true)
 
 // Init a new menu item
 var ni = m.NewItem(&astilectron.MenuItemOptions{
-    Label: astilectron.PtrStr("Inserted"),
+    Label: astikit.StrPtr("Inserted"),
     SubMenu: []*astilectron.MenuItemOptions{
-        {Label: astilectron.PtrStr("Inserted 1")},
-        {Label: astilectron.PtrStr("Inserted 2")},
+        {Label: astikit.StrPtr("Inserted 1")},
+        {Label: astikit.StrPtr("Inserted 2")},
     },
 })
 
@@ -298,10 +301,10 @@ s, _ := m.SubMenu(0)
 
 // Init a new menu item
 ni = s.NewItem(&astilectron.MenuItemOptions{
-    Label: astilectron.PtrStr("Appended"),
+    Label: astikit.StrPtr("Appended"),
     SubMenu: []*astilectron.MenuItemOptions{
-        {Label: astilectron.PtrStr("Appended 1")},
-        {Label: astilectron.PtrStr("Appended 2")},
+        {Label: astikit.StrPtr("Appended 1")},
+        {Label: astikit.StrPtr("Appended 2")},
     },
 })
 
@@ -309,7 +312,7 @@ ni = s.NewItem(&astilectron.MenuItemOptions{
 s.Append(ni)
 
 // Pop up sub menu as a context menu
-s.Popup(&astilectron.MenuPopupOptions{PositionOptions: astilectron.PositionOptions{X: astilectron.PtrInt(50), Y: astilectron.PtrInt(50)}})
+s.Popup(&astilectron.MenuPopupOptions{PositionOptions: astilectron.PositionOptions{X: astikit.IntPtr(50), Y: astikit.IntPtr(50)}})
 
 // Close popup
 s.ClosePopup()
@@ -328,26 +331,29 @@ A few things to know:
 ```go
 // New tray
 var t = a.NewTray(&astilectron.TrayOptions{
-    Image:   astilectron.PtrStr("/path/to/image.png"),
-    Tooltip: astilectron.PtrStr("Tray's tooltip"),
+    Image:   astikit.StrPtr("/path/to/image.png"),
+    Tooltip: astikit.StrPtr("Tray's tooltip"),
 })
+
+// Create tray
+t.Create()
 
 // New tray menu
 var m = t.NewMenu([]*astilectron.MenuItemOptions{
     {
-        Label: astilectron.PtrStr("Root 1"),
+        Label: astikit.StrPtr("Root 1"),
         SubMenu: []*astilectron.MenuItemOptions{
-            {Label: astilectron.PtrStr("Item 1")},
-            {Label: astilectron.PtrStr("Item 2")},
+            {Label: astikit.StrPtr("Item 1")},
+            {Label: astikit.StrPtr("Item 2")},
             {Type: astilectron.MenuItemTypeSeparator},
-            {Label: astilectron.PtrStr("Item 3")},
+            {Label: astikit.StrPtr("Item 3")},
         },
     },
     {
-        Label: astilectron.PtrStr("Root 2"),
+        Label: astikit.StrPtr("Root 2"),
         SubMenu: []*astilectron.MenuItemOptions{
-            {Label: astilectron.PtrStr("Item 1")},
-            {Label: astilectron.PtrStr("Item 2")},
+            {Label: astikit.StrPtr("Item 1")},
+            {Label: astikit.StrPtr("Item 2")},
         },
     },
 })
@@ -355,12 +361,9 @@ var m = t.NewMenu([]*astilectron.MenuItemOptions{
 // Create the menu
 m.Create()
 
-// Create tray
-t.Create()
-
 // Change tray's image
 time.Sleep(time.Second)
-t.SetImage(astilectron.PtrStr("/path/to/image-2.png"))
+t.SetImage("/path/to/image-2.png")
 ```
 
 ## Notifications
@@ -369,7 +372,7 @@ t.SetImage(astilectron.PtrStr("/path/to/image-2.png"))
 // Create the notification
 var n = a.NewNotification(&astilectron.NotificationOptions{
 	Body: "My Body",
-	HasReply: astilectron.PtrBool(true), // Only MacOSX
+	HasReply: astikit.BoolPtr(true), // Only MacOSX
 	Icon: "/path/to/icon",
 	ReplyPlaceholder: "type your reply here", // Only MacOSX
 	Title: "My title",
@@ -377,12 +380,12 @@ var n = a.NewNotification(&astilectron.NotificationOptions{
 
 // Add listeners
 n.On(astilectron.EventNameNotificationEventClicked, func(e astilectron.Event) (deleteListener bool) {
-	astilog.Debug("the notification has been clicked!")
+	log.Println("the notification has been clicked!")
 	return
 })
 // Only for MacOSX
 n.On(astilectron.EventNameNotificationEventReplied, func(e astilectron.Event) (deleteListener bool) {
-	astilog.Debugf("the user has replied to the notification: %s", e.Reply)
+	log.Printf("the user has replied to the notification: %s\n", e.Reply)
 	return
 })
 
@@ -416,19 +419,19 @@ d.SetIcon("/path/to/icon")
 // New dock menu
 var m = d.NewMenu([]*astilectron.MenuItemOptions{
     {
-        Label: astilectron.PtrStr("Root 1"),
+        Label: astikit.StrPtr("Root 1"),
         SubMenu: []*astilectron.MenuItemOptions{
-            {Label: astilectron.PtrStr("Item 1")},
-            {Label: astilectron.PtrStr("Item 2")},
+            {Label: astikit.StrPtr("Item 1")},
+            {Label: astikit.StrPtr("Item 2")},
             {Type: astilectron.MenuItemTypeSeparator},
-            {Label: astilectron.PtrStr("Item 3")},
+            {Label: astikit.StrPtr("Item 3")},
         },
     },
         {
-        Label: astilectron.PtrStr("Root 2"),
+        Label: astikit.StrPtr("Root 2"),
         SubMenu: []*astilectron.MenuItemOptions{
-            {Label: astilectron.PtrStr("Item 1")},
-            {Label: astilectron.PtrStr("Item 2")},
+            {Label: astikit.StrPtr("Item 1")},
+            {Label: astikit.StrPtr("Item 2")},
         },
     },
 })
@@ -439,49 +442,13 @@ m.Create()
 
 ## Dialogs
 
-### Error box
+Add the following line at the top of your javascript file :
 
 ```javascript
-// This will wait for the astilectron namespace to be ready
-document.addEventListener('astilectron-ready', function() {
-    // This will open the dialog
-    astilectron.showErrorBox("My Title", "My content")
-})
+const { dialog } = require('electron').remote
 ```
 
-### Message box
-
-```javascript
-// This will wait for the astilectron namespace to be ready
-document.addEventListener('astilectron-ready', function() {
-    // This will open the dialog
-    astilectron.showMessageBox({message: "My message", title: "My Title"})
-})
-```
-
-### Open dialog
-
-```javascript
-// This will wait for the astilectron namespace to be ready
-document.addEventListener('astilectron-ready', function() {
-    // This will open the dialog
-    astilectron.showOpenDialog({properties: ['openFile', 'multiSelections'], title: "My Title"}, function(paths) {
-        console.log("chosen paths are ", paths)
-    })
-})
-```
-
-### Save dialog
-
-```javascript
-// This will wait for the astilectron namespace to be ready
-document.addEventListener('astilectron-ready', function() {
-    // This will open the dialog
-    astilectron.showSaveDialog({title: "My title"}, function(filename) {
-        console.log("chosen filename is ", filename)
-    })
-})
-```
+Use the available [methods](https://github.com/electron/electron/blob/v7.1.10/docs/api/dialog.md).
 
 ## Basic auth
 

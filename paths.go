@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // Paths represents the set of paths needed by Astilectron
@@ -31,16 +29,17 @@ type Paths struct {
 
 // newPaths creates new paths
 func newPaths(os, arch string, o Options) (p *Paths, err error) {
+
 	// Init base directory path
 	p = &Paths{}
 	if err = p.initBaseDirectory(o.BaseDirectoryPath); err != nil {
-		err = errors.Wrap(err, "initializing base directory failed")
+		err = fmt.Errorf("initializing base directory failed: %w", err)
 		return
 	}
 
 	// Init data directory path
 	if err = p.initDataDirectory(o.DataDirectoryPath, o.AppName); err != nil {
-		err = errors.Wrap(err, "initializing data directory failed")
+		err = fmt.Errorf("initializing data directory failed: %w", err)
 		return
 	}
 
@@ -58,12 +57,12 @@ func newPaths(os, arch string, o Options) (p *Paths, err error) {
 	p.provisionStatus = filepath.Join(p.vendorDirectory, "status.json")
 	p.astilectronDirectory = filepath.Join(p.vendorDirectory, "astilectron")
 	p.astilectronApplication = filepath.Join(p.astilectronDirectory, "main.js")
-	p.astilectronDownloadSrc = AstilectronDownloadSrc()
-	p.astilectronDownloadDst = filepath.Join(p.vendorDirectory, fmt.Sprintf("astilectron-v%s.zip", VersionAstilectron))
-	p.astilectronUnzipSrc = filepath.Join(p.astilectronDownloadDst, fmt.Sprintf("astilectron-%s", VersionAstilectron))
+	p.astilectronDownloadSrc = AstilectronDownloadSrc(o.VersionAstilectron)
+	p.astilectronDownloadDst = filepath.Join(p.vendorDirectory, fmt.Sprintf("astilectron-v%s.zip", o.VersionAstilectron))
+	p.astilectronUnzipSrc = filepath.Join(p.astilectronDownloadDst, fmt.Sprintf("astilectron-%s", o.VersionAstilectron))
 	p.electronDirectory = filepath.Join(p.vendorDirectory, fmt.Sprintf("electron-%s-%s", os, arch))
-	p.electronDownloadSrc = ElectronDownloadSrc(os, arch)
-	p.electronDownloadDst = filepath.Join(p.vendorDirectory, fmt.Sprintf("electron-%s-%s-v%s.zip", os, arch, VersionElectron))
+	p.electronDownloadSrc = ElectronDownloadSrc(os, arch, o.VersionElectron)
+	p.electronDownloadDst = filepath.Join(p.vendorDirectory, fmt.Sprintf("electron-%s-%s-v%s.zip", os, arch, o.VersionElectron))
 	p.electronUnzipSrc = p.electronDownloadDst
 	p.initAppExecutable(os, o.AppName)
 	return
@@ -77,7 +76,7 @@ func (p *Paths) initBaseDirectory(baseDirectoryPath string) (err error) {
 		// Retrieve executable path
 		var ep string
 		if ep, err = os.Executable(); err != nil {
-			err = errors.Wrap(err, "retrieving executable path failed")
+			err = fmt.Errorf("retrieving executable path failed: %w", err)
 			return
 		}
 		p.baseDirectory = filepath.Dir(ep)
@@ -85,7 +84,7 @@ func (p *Paths) initBaseDirectory(baseDirectoryPath string) (err error) {
 
 	// We need the absolute path
 	if p.baseDirectory, err = filepath.Abs(p.baseDirectory); err != nil {
-		err = errors.Wrap(err, "computing absolute path failed")
+		err = fmt.Errorf("computing absolute path failed: %w", err)
 		return
 	}
 	return
@@ -96,7 +95,7 @@ func (p *Paths) initDataDirectory(dataDirectoryPath, appName string) (err error)
 	if len(dataDirectoryPath) > 0 {
 		// We need the absolute path
 		if p.dataDirectory, err = filepath.Abs(dataDirectoryPath); err != nil {
-			err = errors.Wrapf(err, "computing absolute path of %s failed", dataDirectoryPath)
+			err = fmt.Errorf("computing absolute path of %s failed: %w", dataDirectoryPath, err)
 			return
 		}
 		return
@@ -114,12 +113,12 @@ func (p *Paths) initDataDirectory(dataDirectoryPath, appName string) (err error)
 }
 
 // AstilectronDownloadSrc returns the download URL of the (currently platform-independent) astilectron zip file
-func AstilectronDownloadSrc() string {
-	return fmt.Sprintf("https://github.com/asticode/astilectron/archive/v%s.zip", VersionAstilectron)
+func AstilectronDownloadSrc(versionAstilectron string) string {
+	return fmt.Sprintf("https://github.com/asticode/astilectron/archive/v%s.zip", versionAstilectron)
 }
 
 // ElectronDownloadSrc returns the download URL of the platform-dependant electron zipfile
-func ElectronDownloadSrc(os, arch string) string {
+func ElectronDownloadSrc(os, arch, versionElectron string) string {
 	// Get OS name
 	var o string
 	switch strings.ToLower(os) {
@@ -140,7 +139,7 @@ func ElectronDownloadSrc(os, arch string) string {
 	}
 
 	// Return url
-	return fmt.Sprintf("https://github.com/electron/electron/releases/download/v%s/electron-v%s-%s-%s.zip", VersionElectron, VersionElectron, o, a)
+	return fmt.Sprintf("https://github.com/electron/electron/releases/download/v%s/electron-v%s-%s-%s.zip", versionElectron, versionElectron, o, a)
 }
 
 // initAppExecutable initializes the app executable path

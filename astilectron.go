@@ -2,27 +2,23 @@ package astilectron
 
 import (
 	"bufio"
+	"fmt"
 	"net"
-	"os"
 	"os/exec"
-	"os/signal"
 	"runtime"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	"github.com/asticode/go-astilog"
-	"github.com/asticode/go-astitools/context"
-	"github.com/asticode/go-astitools/exec"
-	"github.com/pkg/errors"
+	"github.com/asticode/go-astikit"
 )
 
 // Versions
 const (
-	DefaultAcceptTCPTimeout = 30 * time.Second
-	VersionAstilectron      = "0.30.0"
-	VersionElectron         = "4.0.1"
+	DefaultAcceptTCPTimeout   = 30 * time.Second
+	DefaultVersionAstilectron = "0.35.1"
+	DefaultVersionElectron    = "7.1.10"
 )
 
 // Misc vars
@@ -38,9 +34,9 @@ var (
 )
 
 // oncelistenTCP
-func onceListenTCP() (listeners net.Listener, err error) {
+func onceListenTCP(addr string) (listeners net.Listener, err error) {
 	onceListen.Do(func() {
-		oneNetListener, err = net.Listen("tcp", "127.0.0.1:")
+		oneNetListener, err = net.Listen("tcp", addr)
 	})
 	listeners = oneNetListener
 	return
@@ -66,22 +62,21 @@ const (
 
 // Astilectron represents an object capable of interacting with Astilectron
 type Astilectron struct {
-	canceller    *asticontext.Canceller
-	channelQuit  chan bool
-	closeOnce    sync.Once
 	dispatcher   *dispatcher
 	displayPool  *displayPool
 	dock         *Dock
 	executer     Executer
 	identifier   *identifier
+	l            astikit.SeverityLogger
 	listener     net.Listener
 	options      Options
 	paths        *Paths
 	provisioner  Provisioner
 	reader       *reader
-	stderrWriter *astiexec.StdWriter
-	stdoutWriter *astiexec.StdWriter
+	stderrWriter *astikit.WriterAdapter
+	stdoutWriter *astikit.WriterAdapter
 	supported    *Supported
+	worker       *astikit.Worker
 	writer       *writer
 }
 
@@ -97,6 +92,10 @@ type Options struct {
 	SingleInstance     bool
 	AppTargetID        string // thie identity of one astilectron instance
 	DisableElectron    bool   // whether start electron process
+	SkipSetup          bool   // If true, the user must handle provisioning and executing astilectron.
+	TCPPort            *int   // The port to listen on.
+	VersionAstilectron string
+	VersionElectron    string
 }
 
 // Supported represents Astilectron supported features
@@ -105,10 +104,10 @@ type Supported struct {
 }
 
 // New creates a new Astilectron instance
-func New(o Options) (a *Astilectron, err error) {
+func New(l astikit.StdLogger, o Options) (a *Astilectron, err error) {
 	// Validate the OS
 	if !IsValidOS(runtime.GOOS) {
-		err = errors.Wrapf(err, "OS %s is invalid", runtime.GOOS)
+		err = fmt.Errorf("OS %s is invalid", runtime.GOOS)
 		return
 	}
 	// default appTargetID
@@ -116,21 +115,28 @@ func New(o Options) (a *Astilectron, err error) {
 		o.AppTargetID = targetIDApp
 	}
 
+	if o.VersionAstilectron == "" {
+		o.VersionAstilectron = DefaultVersionAstilectron
+	}
+	if o.VersionElectron == "" {
+		o.VersionElectron = DefaultVersionElectron
+	}
+
 	// Init
 	a = &Astilectron{
-		canceller:   asticontext.NewCanceller(),
-		channelQuit: make(chan bool),
 		dispatcher:  newDispatcher(),
 		displayPool: newDisplayPool(),
 		executer:    DefaultExecuter,
 		identifier:  newIdentifier(),
+		l:           astikit.AdaptStdLogger(l),
 		options:     o,
-		provisioner: DefaultProvisioner,
+		provisioner: newDefaultProvisioner(l),
+		worker:      astikit.NewWorker(astikit.WorkerOptions{Logger: l}),
 	}
 
 	// Set paths
 	if a.paths, err = newPaths(runtime.GOOS, runtime.GOARCH, o); err != nil {
-		err = errors.Wrap(err, "creating new paths failed")
+		err = fmt.Errorf("creating new paths failed: %w", err)
 		return
 	}
 
@@ -149,6 +155,10 @@ func New(o Options) (a *Astilectron, err error) {
 	})
 	a.On(EventNameDisplayEventRemoved, func(e Event) (deleteListener bool) {
 		a.displayPool.update(e.Displays)
+		return
+	})
+	a.On(EventNameAppCmdQuit, func(e Event) (deleteListener bool) {
+		a.Stop()
 		return
 	})
 	// register map element
@@ -182,52 +192,57 @@ func (a *Astilectron) On(eventName string, l Listener) {
 // Start starts Astilectron
 func (a *Astilectron) Start() (err error) {
 	// Log
-	astilog.Debug("Starting...")
+	a.l.Debug("Starting...")
 
-	if !a.options.DisableElectron {
-		// Provision
+	// Provision
+	if !a.options.SkipSetup {
 		if err = a.provision(); err != nil {
-			return errors.Wrap(err, "provisioning failed")
+			return fmt.Errorf("provisioning failed: %w", err)
 		}
 	}
 
 	// Unfortunately communicating with Electron through stdin/stdout doesn't work on Windows so all communications
 	// will be done through TCP
 	if err = a.listenTCP(); err != nil {
-		return errors.Wrap(err, "listening failed")
+		return fmt.Errorf("listening failed: %w", err)
 	}
 
-	if !a.options.DisableElectron {
-		// Execute electron
+	// Execute
+	if !a.options.SkipSetup {
 		if err = a.execute(); err != nil {
-			err = errors.Wrap(err, "executing failed")
-			return
+			return fmt.Errorf("executing failed: %w", err)
 		}
+	} else {
+		synchronousFunc(a.worker.Context(), a, nil, "app.event.ready")
 	}
-	return
+	return nil
 }
 
 // provision provisions Astilectron
 func (a *Astilectron) provision() error {
-	astilog.Debug("Provisioning...")
-	var ctx, _ = a.canceller.NewContext()
-	return a.provisioner.Provision(ctx, a.options.AppName, runtime.GOOS, runtime.GOARCH, *a.paths)
+	a.l.Debug("Provisioning...")
+	return a.provisioner.Provision(a.worker.Context(), a.options.AppName, runtime.GOOS, runtime.GOARCH, a.options.VersionAstilectron, a.options.VersionElectron, *a.paths)
 }
 
-// listenTCP listens to the first TCP connection coming its way (this should be Astilectron)
+// listenTCP creates a TCP server for astilectron to connect to
+// and listens to the first TCP connection coming its way (this should be Astilectron).
 func (a *Astilectron) listenTCP() (err error) {
 	// Log
-	astilog.Debug("Listening...")
+	a.l.Debug("Listening...")
 
+	addr := "127.0.0.1:"
+	if a.options.TCPPort != nil {
+		addr += fmt.Sprint(*a.options.TCPPort)
+	}
 	// Listen
 	/*
-		if a.listener, err = net.Listen("tcp", "127.0.0.1:"); err != nil {
-			return errors.Wrap(err, "tcp net.Listen failed")
+		if a.listener, err = net.Listen("tcp", addr); err != nil {
+			return fmt.Errorf("tcp net.Listen failed: %w", err)
 		}
 	*/
 	// Listen once
-	if a.listener, err = onceListenTCP(); err != nil {
-		return errors.Wrap(err, "tcp net.Listen failed")
+	if a.listener, err = onceListenTCP(addr); err != nil {
+		return fmt.Errorf("tcp net.Listen failed: %w", err)
 	}
 
 	// Check a connection has been accepted quickly enough
@@ -252,7 +267,7 @@ func (a *Astilectron) watchNoAccept(timeout time.Duration, chanAccepted chan boo
 		case <-chanAccepted:
 			return
 		case <-t.C:
-			astilog.Errorf("No TCP connection has been accepted in the past %s", timeout)
+			a.l.Errorf("No TCP connection has been accepted in the past %s", timeout)
 			a.dispatcher.dispatch(Event{Name: EventNameAppNoAccept, TargetID: a.options.AppTargetID})
 			a.dispatcher.dispatch(Event{Name: EventNameAppCmdStop, TargetID: a.options.AppTargetID})
 			return
@@ -267,7 +282,7 @@ func (a *Astilectron) acceptTCP(chanAccepted chan bool) {
 		var conn net.Conn
 		var err error
 		if conn, err = a.listener.Accept(); err != nil {
-			astilog.Errorf("%s while TCP accepting", err)
+			a.l.Errorf("%s while TCP accepting", err)
 			a.dispatcher.dispatch(Event{Name: EventNameAppErrorAccept, TargetID: a.options.AppTargetID})
 			a.dispatcher.dispatch(Event{Name: EventNameAppCmdStop, TargetID: a.options.AppTargetID})
 			return
@@ -276,7 +291,7 @@ func (a *Astilectron) acceptTCP(chanAccepted chan bool) {
 		// We only accept the first connection which should be Astilectron, close the next one and stop
 		// the app
 		if i > 0 {
-			astilog.Errorf("Too many TCP connections")
+			a.l.Errorf("Too many TCP connections")
 			a.dispatcher.dispatch(Event{Name: EventNameAppTooManyAccept, TargetID: a.options.AppTargetID})
 			a.dispatcher.dispatch(Event{Name: EventNameAppCmdStop, TargetID: a.options.AppTargetID})
 			conn.Close()
@@ -293,9 +308,8 @@ func (a *Astilectron) acceptTCP(chanAccepted chan bool) {
 			// Create reader and writer
 			if ra, ok := astMap[appTargetID]; ok {
 				conn.Write([]byte("NIHAO\n"))
-				ra.writer = newWriter(conn)
-				ctx, _ := a.canceller.NewContext()
-				ra.reader = newReader(ctx, ra.dispatcher, conn)
+				ra.writer = newWriter(conn, ra.l)
+				ra.reader = newReader(ra.worker.Context(), ra.l, ra.dispatcher, conn)
 				go ra.reader.read()
 			} else {
 				conn.Write([]byte("app targetID err!\n"))
@@ -321,25 +335,30 @@ func (a *Astilectron) GetListenAddr() (laddr string) {
 // execute executes Astilectron in Electron
 func (a *Astilectron) execute() (err error) {
 	// Log
-	astilog.Debug("Executing...")
+	a.l.Debug("Executing...")
 
 	// Create command
-	var ctx, _ = a.canceller.NewContext()
 	var singleInstance string
-	if a.options.SingleInstance == true {
+	if a.options.SingleInstance {
 		singleInstance = "true"
 	} else {
 		singleInstance = "false"
 	}
-	var cmd = exec.CommandContext(ctx, a.paths.AppExecutable(), append([]string{a.paths.AstilectronApplication(), a.listener.Addr().String(), singleInstance}, a.options.ElectronSwitches...)...)
-	a.stderrWriter = astiexec.NewStdWriter(func(i []byte) { astilog.Debugf("Stderr says: %s", i) })
-	a.stdoutWriter = astiexec.NewStdWriter(func(i []byte) { astilog.Debugf("Stdout says: %s", i) })
+	var cmd = exec.CommandContext(a.worker.Context(), a.paths.AppExecutable(), append([]string{a.paths.AstilectronApplication(), a.listener.Addr().String(), singleInstance}, a.options.ElectronSwitches...)...)
+	a.stderrWriter = astikit.NewWriterAdapter(astikit.WriterAdapterOptions{
+		Callback: func(i []byte) { a.l.Debugf("Stderr says: %s", i) },
+		Split:    []byte("\n"),
+	})
+	a.stdoutWriter = astikit.NewWriterAdapter(astikit.WriterAdapterOptions{
+		Callback: func(i []byte) { a.l.Debugf("Stdout says: %s", i) },
+		Split:    []byte("\n"),
+	})
 	cmd.Stderr = a.stderrWriter
 	cmd.Stdout = a.stdoutWriter
 
 	// Execute command
 	if err = a.executeCmd(cmd); err != nil {
-		return errors.Wrap(err, "executing cmd failed")
+		return fmt.Errorf("executing cmd failed: %w", err)
 	}
 	return
 }
@@ -362,9 +381,12 @@ func (a *Astilectron) RunCommonCmd(appName string, args ...string) (err error) {
 
 // executeCmd executes the command
 func (a *Astilectron) executeCmd(cmd *exec.Cmd) (err error) {
-	var e = synchronousFunc(a.canceller, a, func() {
-		err = a.executer(a, cmd)
-	}, EventNameAppEventReady)
+	// Execute
+	var e Event
+	if e, err = synchronousFunc(a.worker.Context(), a, func() error { return a.executer(a.l, a, cmd) }, EventNameAppEventReady); err != nil {
+		err = fmt.Errorf("executer failed: %w", err)
+		return
+	}
 
 	// Update display pool
 	if e.Displays != nil {
@@ -372,7 +394,7 @@ func (a *Astilectron) executeCmd(cmd *exec.Cmd) (err error) {
 	}
 
 	// Create dock
-	a.dock = newDock(a.canceller, a.dispatcher, a.identifier, a.writer)
+	a.dock = newDock(a.worker.Context(), a.dispatcher, a.identifier, a.writer)
 
 	// Update supported features
 	a.supported = e.Supported
@@ -381,26 +403,30 @@ func (a *Astilectron) executeCmd(cmd *exec.Cmd) (err error) {
 
 // watchCmd watches the cmd execution
 func (a *Astilectron) watchCmd(cmd *exec.Cmd) {
-	// Wait
-	cmd.Wait()
+	a.worker.NewTask().Do(func() {
+		// Wait
+		if err := cmd.Wait(); err != nil {
+			a.l.Errorf("'%v' exited with code: %v", cmd.Path, cmd.ProcessState.ExitCode())
+		}
 
-	// support other child apps
-	targetId := a.options.AppTargetID
-	// Check the canceller to check whether it was a crash
-	if !a.canceller.Cancelled() {
-		astilog.Debug("App has crashed")
-		a.dispatcher.dispatch(Event{Name: EventNameAppCrash, TargetID: targetId})
-	} else {
-		astilog.Debug("App has closed")
-		a.dispatcher.dispatch(Event{Name: EventNameAppClose, TargetID: targetId})
-	}
-	a.dispatcher.dispatch(Event{Name: EventNameAppCmdStop, TargetID: targetId})
+		// support other child apps
+		targetId := a.options.AppTargetID
+		// Check the context to determine whether it was a crash
+		if a.worker.Context().Err() == nil {
+			a.l.Debug("App has crashed")
+			a.dispatcher.dispatch(Event{Name: EventNameAppCrash, TargetID: targetId})
+		} else {
+			a.l.Debug("App has closed")
+			a.dispatcher.dispatch(Event{Name: EventNameAppClose, TargetID: targetId})
+		}
+		a.dispatcher.dispatch(Event{Name: EventNameAppCmdStop, TargetID: targetId})
+	})
 }
 
 // Close closes Astilectron properly
 func (a *Astilectron) Close() {
-	astilog.Debug("Closing...")
-	a.canceller.Cancel()
+	a.l.Debug("Closing...")
+	a.worker.Stop()
 	delete(astMap, a.options.AppTargetID)
 	/*
 		if a.listener != nil {
@@ -423,28 +449,18 @@ func (a *Astilectron) Close() {
 
 // HandleSignals handles signals
 func (a *Astilectron) HandleSignals() {
-	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, syscall.SIGABRT, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
-	go func() {
-		for sig := range ch {
-			astilog.Debugf("Received signal %s", sig)
-			a.Stop()
-		}
-	}()
+	a.worker.HandleSignals()
 }
 
 // Stop orders Astilectron to stop
 func (a *Astilectron) Stop() {
-	astilog.Debug("Stopping...")
-	a.canceller.Cancel()
-	a.closeOnce.Do(func() {
-		close(a.channelQuit)
-	})
+	a.l.Debug("Stopping...")
+	a.worker.Stop()
 }
 
 // Wait is a blocking pattern
 func (a *Astilectron) Wait() {
-	<-a.channelQuit
+	a.worker.Wait()
 }
 
 // Quit quits the app
@@ -474,12 +490,12 @@ func (a *Astilectron) PrimaryDisplay() *Display {
 
 // NewMenu creates a new app menu
 func (a *Astilectron) NewMenu(i []*MenuItemOptions) *Menu {
-	return newMenu(nil, a.options.AppTargetID, i, a.canceller, a.dispatcher, a.identifier, a.writer)
+	return newMenu(a.worker.Context(), a.options.AppTargetID, i, a.canceller, a.dispatcher, a.identifier, a.writer)
 }
 
 // NewWindow creates a new window
 func (a *Astilectron) NewWindow(url string, o *WindowOptions) (*Window, error) {
-	return newWindow(a.options, a.Paths(), url, o, a.canceller, a.dispatcher, a.identifier, a.writer)
+	return newWindow(a.worker.Context(), a.l, a.options, a.Paths(), url, o, a.dispatcher, a.identifier, a.writer)
 }
 
 // NewWindowInDisplay creates a new window in a specific display
@@ -488,22 +504,22 @@ func (a *Astilectron) NewWindowInDisplay(d *Display, url string, o *WindowOption
 	if o.X != nil {
 		*o.X += d.Bounds().X
 	} else {
-		o.X = PtrInt(d.Bounds().X)
+		o.X = astikit.IntPtr(d.Bounds().X)
 	}
 	if o.Y != nil {
 		*o.Y += d.Bounds().Y
 	} else {
-		o.Y = PtrInt(d.Bounds().Y)
+		o.Y = astikit.IntPtr(d.Bounds().Y)
 	}
-	return newWindow(a.options, a.Paths(), url, o, a.canceller, a.dispatcher, a.identifier, a.writer)
+	return newWindow(a.worker.Context(), a.l, a.options, a.Paths(), url, o, a.dispatcher, a.identifier, a.writer)
 }
 
 // NewTray creates a new tray
 func (a *Astilectron) NewTray(o *TrayOptions) *Tray {
-	return newTray(o, a.canceller, a.dispatcher, a.identifier, a.writer)
+	return newTray(a.worker.Context(), o, a.dispatcher, a.identifier, a.writer)
 }
 
 // NewNotification creates a new notification
 func (a *Astilectron) NewNotification(o *NotificationOptions) *Notification {
-	return newNotification(o, a.supported != nil && a.supported.Notification != nil && *a.supported.Notification, a.canceller, a.dispatcher, a.identifier, a.writer)
+	return newNotification(a.worker.Context(), o, a.supported != nil && a.supported.Notification != nil && *a.supported.Notification, a.dispatcher, a.identifier, a.writer)
 }
