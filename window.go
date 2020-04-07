@@ -7,11 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/asticode/go-astikit"
-	"github.com/asticode/go-astilog"
-	"github.com/asticode/go-astitools/context"
-	"github.com/asticode/go-astitools/url"
-	"github.com/pkg/errors"
+	astikit "github.com/asticode/go-astikit"
 )
 
 // Window event names
@@ -36,7 +32,6 @@ const (
 	EventNameWindowCmdMinimize                 = "window.cmd.minimize"
 	EventNameWindowCmdMove                     = "window.cmd.move"
 	EventNameWindowCmdResize                   = "window.cmd.resize"
-	EventNameWindowCmdSetBounds                = "window.cmd.setbounds"
 	EventNameWindowCmdSetAutoResize            = "window.cmd.setautoresize"
 	EventNameWindowCmdGetBounds                = "window.cmd.getbounds"
 	EventNameWindowCmdSetBounds                = "window.cmd.set.bounds"
@@ -329,18 +324,18 @@ func (w *Window) Create() (err error) {
 // We wait for EventNameWindowEventDidFinishLoad since we need the web content to be fully loaded before being able to
 // send messages to it
 func (w *Window) CreateBrowserView(pw *Window) (err error) {
-	if err = w.isActionable(); err != nil {
+	if err = w.ctx.Err(); err != nil {
 		return
 	}
 	if pw == nil {
-		err = errors.New("parent window has not to be nil")
+		err = fmt.Errorf("parent window has not to be nil")
 		return
 	}
 	// set parent id of this browser view
-	w.o.ParentID = PtrStr(pw.id)
-	w.o.BrowserView = PtrBool(true)
+	w.o.ParentID = astikit.StrPtr(pw.id)
+	w.o.BrowserView = astikit.BoolPtr(true)
 
-	_, err = synchronousEvent(w.c, w, w.w,
+	_, err = synchronousEvent(w.ctx, w, w.w,
 		Event{
 			Name:          EventNameWindowCmdCreateBrowserView,
 			SessionID:     w.Session.id,
@@ -350,7 +345,7 @@ func (w *Window) CreateBrowserView(pw *Window) (err error) {
 		}, EventNameWindowEventDidFinishLoad)
 	// set bounds
 	if err == nil {
-		w.SetBounds(&RectangleOptions{
+		w.SetBounds(RectangleOptions{
 			PositionOptions: PositionOptions{
 				X: w.o.X,
 				Y: w.o.Y,
@@ -420,11 +415,12 @@ func (w *Window) Maximize() (err error) {
 
 // check the window is maximized
 func (w *Window) IsMaximized() (is bool, err error) {
-	if err = w.isActionable(); err != nil {
+	if err = w.ctx.Err(); err != nil {
+		is = false
 		return
 	}
 	var be Event
-	be, err = synchronousEvent(w.c, w, w.w,
+	be, err = synchronousEvent(w.ctx, w, w.w,
 		Event{
 			Name:     EventNameWindowCmdIsMaximized,
 			TargetID: w.id,
@@ -438,12 +434,12 @@ func (w *Window) IsMaximized() (is bool, err error) {
 
 // fullscreen the window
 func (w *Window) SetFullScreen(fullscreen bool) (err error) {
-	if err = w.isActionable(); err != nil {
+	if err = w.ctx.Err(); err != nil {
 		return
 	}
 	w.m.Lock()
-	w.o.Fullscreen = PtrBool(fullscreen)
-	_, err = synchronousEvent(w.c, w, w.w,
+	w.o.Fullscreen = astikit.BoolPtr(fullscreen)
+	_, err = synchronousEvent(w.ctx, w, w.w,
 		Event{
 			Name:     EventNameWindowCmdSetFullscreen,
 			TargetID: w.id,
@@ -456,12 +452,12 @@ func (w *Window) SetFullScreen(fullscreen bool) (err error) {
 
 // set frame show or not
 func (w *Window) SetFrameShow(showframe bool) (err error) {
-	if err = w.isActionable(); err != nil {
+	if err = w.ctx.Err(); err != nil {
 		return
 	}
 	w.m.Lock()
-	w.o.Frame = PtrBool(showframe)
-	_, err = synchronousEvent(w.c, w, w.w,
+	w.o.Frame = astikit.BoolPtr(showframe)
+	_, err = synchronousEvent(w.ctx, w, w.w,
 		Event{
 			Name:     EventNameWindowCmdSetFrameShow,
 			TargetID: w.id,
@@ -644,6 +640,7 @@ func (w *Window) Unmaximize() (err error) {
 	return
 }
 
+/*
 // setBounds the window or browserview
 func (w *Window) SetBounds(bounds *RectangleOptions) (err error) {
 	if err = w.isActionable(); err != nil {
@@ -657,14 +654,15 @@ func (w *Window) SetBounds(bounds *RectangleOptions) (err error) {
 		}, EventNameWindowEventSetBounds)
 	return
 }
+*/
 
 // getBounds of the window or browserview
 func (w *Window) GetBounds() (bounds *RectangleOptions, err error) {
-	if err = w.isActionable(); err != nil {
+	if err = w.ctx.Err(); err != nil {
 		return
 	}
 	var be Event
-	be, err = synchronousEvent(w.c, w, w.w,
+	be, err = synchronousEvent(w.ctx, w, w.w,
 		Event{
 			Name:     EventNameWindowCmdGetBounds,
 			TargetID: w.id,
@@ -677,10 +675,10 @@ func (w *Window) GetBounds() (bounds *RectangleOptions, err error) {
 
 // browser view setAutoResize
 func (w *Window) SetAutoResize(aResize *AutoResizeOptions) (err error) {
-	if err = w.isActionable(); err != nil {
+	if err = w.ctx.Err(); err != nil {
 		return
 	}
-	_, err = synchronousEvent(w.c, w, w.w,
+	_, err = synchronousEvent(w.ctx, w, w.w,
 		Event{
 			Name:              EventNameWindowCmdSetAutoResize,
 			TargetID:          w.id,

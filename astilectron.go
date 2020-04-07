@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/asticode/go-astikit"
@@ -365,16 +364,21 @@ func (a *Astilectron) execute() (err error) {
 
 // executeCmd executes the command
 func (a *Astilectron) RunCommonCmd(appName string, args ...string) (err error) {
-	var ctx, _ = a.canceller.NewContext()
-	var cmd = exec.CommandContext(ctx, appName, args...)
-	a.stderrWriter = astiexec.NewStdWriter(func(i []byte) { astilog.Debugf("Stderr says: %s", i) })
-	a.stdoutWriter = astiexec.NewStdWriter(func(i []byte) { astilog.Debugf("Stdout says: %s", i) })
+	var cmd = exec.CommandContext(a.worker.Context(), appName, args...)
+	a.stderrWriter = astikit.NewWriterAdapter(astikit.WriterAdapterOptions{
+		Callback: func(i []byte) { a.l.Debugf("Stderr says: %s", i) },
+		Split:    []byte("\n"),
+	})
+	a.stdoutWriter = astikit.NewWriterAdapter(astikit.WriterAdapterOptions{
+		Callback: func(i []byte) { a.l.Debugf("Stdout says: %s", i) },
+		Split:    []byte("\n"),
+	})
 	cmd.Stderr = a.stderrWriter
 	cmd.Stdout = a.stdoutWriter
 
 	// Execute command
 	if err = a.executeCmd(cmd); err != nil {
-		return errors.Wrap(err, "executing cmd failed")
+		return fmt.Errorf("executing cmd failed: %w", err)
 	}
 	return
 }
@@ -490,7 +494,7 @@ func (a *Astilectron) PrimaryDisplay() *Display {
 
 // NewMenu creates a new app menu
 func (a *Astilectron) NewMenu(i []*MenuItemOptions) *Menu {
-	return newMenu(a.worker.Context(), a.options.AppTargetID, i, a.canceller, a.dispatcher, a.identifier, a.writer)
+	return newMenu(a.worker.Context(), a.options.AppTargetID, i, a.dispatcher, a.identifier, a.writer)
 }
 
 // NewWindow creates a new window
