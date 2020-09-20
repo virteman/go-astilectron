@@ -16,7 +16,7 @@ import (
 // Versions
 const (
 	DefaultAcceptTCPTimeout   = 30 * time.Second
-	DefaultVersionAstilectron = "0.35.1"
+	DefaultVersionAstilectron = "0.39.0"
 	DefaultVersionElectron    = "7.1.10"
 )
 
@@ -452,8 +452,8 @@ func (a *Astilectron) Close() {
 }
 
 // HandleSignals handles signals
-func (a *Astilectron) HandleSignals() {
-	a.worker.HandleSignals()
+func (a *Astilectron) HandleSignals(hs ...astikit.SignalHandler) {
+	a.worker.HandleSignals(hs...)
 }
 
 // Stop orders Astilectron to stop

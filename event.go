@@ -27,6 +27,7 @@ type Event struct {
 	Bounds              *RectangleOptions    `json:"bounds,omitempty"`
 	AutoResizeOptions   *AutoResizeOptions   `json:"autoResizeOptions,omitempty"`
 	CallbackID          string               `json:"callbackId,omitempty"`
+	Code                string               `json:"code,omitempty"`
 	Displays            *EventDisplays       `json:"displays,omitempty"`
 	FilePath            string               `json:"filePath,omitempty"`
 	ID                  *int                 `json:"id,omitempty"`

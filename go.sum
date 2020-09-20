@@ -1,15 +1,5 @@
-github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
-github.com/asticode/go-astiamqp v1.2.0/go.mod h1:bnOKJD4/B2T87fLEjnYFwEK1T4X/5iX/Nv9+NeJZa/s=
-github.com/asticode/go-astikit v0.0.2/go.mod h1:h4ly7idim1tNhaVkdVBeXQZEE3L0xblP7fCWbgwipF0=
-github.com/asticode/go-astikit v0.4.0 h1:lA5oJWGwUuaKzAZPjR1frd/xKfAquk9gu5hybsJqitk=
-github.com/asticode/go-astikit v0.4.0/go.mod h1:h4ly7idim1tNhaVkdVBeXQZEE3L0xblP7fCWbgwipF0=
-github.com/asticode/go-astilog v1.2.0/go.mod h1:0sGDwdYLRSFVbbvrXLbJC9niyGWL5JGTCEQWFJKHZr0=
-github.com/asticode/go-astilog v1.3.0 h1:5QwZPQDLkLPE3JzibEJwOPEEWT37anOQAy5MQ7XkvCQ=
-github.com/asticode/go-astilog v1.3.0/go.mod h1:0sGDwdYLRSFVbbvrXLbJC9niyGWL5JGTCEQWFJKHZr0=
-github.com/asticode/go-astilog v2.0.1+incompatible h1:ZbNSFJg/cCMXCBVCP8Yi0S2ZwBKj3uEIhbrzI9M8ksk=
-github.com/asticode/go-astitools v1.3.0 h1:jWnnFCd8aNbThWRS2CSj2UWgNOnK03ENsOEvN8unjCA=
-github.com/asticode/go-astitools v1.3.0/go.mod h1:Wd7uBjrd51smbqR5J5kPSnNB9UEqplY2fEXJ7cSBySU=
-github.com/asticode/go-astiws v1.0.1/go.mod h1:5F/0RkJTq1SZ0TsiheD3j/9lr9kla70c2q7w1aAG78Q=
+github.com/asticode/go-astikit v0.6.0 h1:zmbw5J2Du8SedBG1I5JjlsS5oG2vHcb6ZzhWMCMbLzs=
+github.com/asticode/go-astikit v0.6.0/go.mod h1:h4ly7idim1tNhaVkdVBeXQZEE3L0xblP7fCWbgwipF0=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
