@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/asticode/go-astikit"
+	"github.com/virteman/go-astikit"
 	"github.com/stretchr/testify/assert"
 )
 

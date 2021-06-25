@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/asticode/go-astikit"
+	"github.com/virteman/go-astikit"
 )
 
 // Var

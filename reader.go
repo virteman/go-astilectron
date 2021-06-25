@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/asticode/go-astikit"
+	"github.com/virteman/go-astikit"
 )
 
 // reader represents an object capable of reading in the TCP server

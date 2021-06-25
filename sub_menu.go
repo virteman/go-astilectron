@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/asticode/go-astikit"
+	"github.com/virteman/go-astikit"
 )
 
 // Sub menu event names

@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/asticode/go-astikit"
+	"github.com/virteman/go-astikit"
 )
 
 // Download is a cancellable function that downloads a src into a dst using a specific *http.Client and cleans up on

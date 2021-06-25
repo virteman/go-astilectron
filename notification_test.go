@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/asticode/go-astikit"
+	"github.com/virteman/go-astikit"
 )
 
 func TestNotification_Actions(t *testing.T) {

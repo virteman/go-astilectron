@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/asticode/go-astikit"
+	"github.com/virteman/go-astikit"
 )
 
 // Versions

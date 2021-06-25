@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/asticode/go-astikit"
+	"github.com/virteman/go-astikit"
 )
 
 // writer represents an object capable of writing in the TCP server
