@@ -38,6 +38,7 @@ const (
 	EventNameWindowCmdRestore                         = "window.cmd.restore"
 	EventNameWindowCmdShow                            = "window.cmd.show"
 	EventNameWindowCmdUnmaximize                      = "window.cmd.unmaximize"
+	EventNameWindowCmdUpdateCustomOptions             = "window.cmd.update.custom.options"
 	EventNameWindowCmdWebContentsCloseDevTools        = "window.cmd.web.contents.close.dev.tools"
 	EventNameWindowCmdWebContentsOpenDevTools         = "window.cmd.web.contents.open.dev.tools"
 	EventNameWindowCmdWebContentsExecuteJavaScript    = "window.cmd.web.contents.execute.javascript"
@@ -67,6 +68,7 @@ const (
 	EventNameWindowEventWebContentsExecutedJavaScript = "window.event.web.contents.executed.javascript"
 	EventNameWindowEventWillNavigate                  = "window.event.will.navigate"
 	EventNameWindowEventNewWindow                     = "window.event.newwindow"
+	EventNameWindowEventUpdatedCustomOptions          = "window.event.updated.custom.options"
 )
 
 // Title bar styles
@@ -180,21 +182,23 @@ type WindowProxyOptions struct {
 // We must use pointers since GO doesn't handle optional fields whereas NodeJS does.
 // Use astikit.BoolPtr, astikit.IntPtr or astikit.StrPtr to fill the struct
 type WebPreferences struct {
-	AllowRunningInsecureContent *bool                  `json:"allowRunningInsecureContent,omitempty"`
-	BackgroundThrottling        *bool                  `json:"backgroundThrottling,omitempty"`
-	BlinkFeatures               *string                `json:"blinkFeatures,omitempty"`
-	ContextIsolation            *bool                  `json:"contextIsolation,omitempty"`
-	DefaultEncoding             *string                `json:"defaultEncoding,omitempty"`
-	DefaultFontFamily           map[string]interface{} `json:"defaultFontFamily,omitempty"`
-	DefaultFontSize             *int                   `json:"defaultFontSize,omitempty"`
-	DefaultMonospaceFontSize    *int                   `json:"defaultMonospaceFontSize,omitempty"`
-	DevTools                    *bool                  `json:"devTools,omitempty"`
-	DisableBlinkFeatures        *string                `json:"disableBlinkFeatures,omitempty"`
-	ExperimentalCanvasFeatures  *bool                  `json:"experimentalCanvasFeatures,omitempty"`
-	ExperimentalFeatures        *bool                  `json:"experimentalFeatures,omitempty"`
-	Images                      *bool                  `json:"images,omitempty"`
-	Javascript                  *bool                  `json:"javascript,omitempty"`
-	MinimumFontSize             *int                   `json:"minimumFontSize,omitempty"`
+	AllowRunningInsecureContent *bool   `json:"allowRunningInsecureContent,omitempty"`
+	BackgroundThrottling        *bool   `json:"backgroundThrottling,omitempty"`
+	BlinkFeatures               *string `json:"blinkFeatures,omitempty"`
+	// This attribute needs to be false at all time
+	// ContextIsolation            *bool                  `json:"contextIsolation,omitempty"`
+	DefaultEncoding            *string                `json:"defaultEncoding,omitempty"`
+	DefaultFontFamily          map[string]interface{} `json:"defaultFontFamily,omitempty"`
+	DefaultFontSize            *int                   `json:"defaultFontSize,omitempty"`
+	DefaultMonospaceFontSize   *int                   `json:"defaultMonospaceFontSize,omitempty"`
+	DevTools                   *bool                  `json:"devTools,omitempty"`
+	DisableBlinkFeatures       *string                `json:"disableBlinkFeatures,omitempty"`
+	EnableRemoteModule         *bool                  `json:"enableRemoteModule,omitempty"`
+	ExperimentalCanvasFeatures *bool                  `json:"experimentalCanvasFeatures,omitempty"`
+	ExperimentalFeatures       *bool                  `json:"experimentalFeatures,omitempty"`
+	Images                     *bool                  `json:"images,omitempty"`
+	Javascript                 *bool                  `json:"javascript,omitempty"`
+	MinimumFontSize            *int                   `json:"minimumFontSize,omitempty"`
 	// This attribute needs to be true at all time
 	NodeIntegration         *bool                  `json:"nodeIntegration,omitempty"`
 	NodeIntegrationInWorker *bool                  `json:"nodeIntegrationInWorker,omitempty"`
@@ -718,4 +722,16 @@ func (w *Window) OnNewWindow(l ListenerEvent) {
 // OnReadyToShow event
 func (w *Window) OnReadyToShow(l ListenerEvent) {
 	w.OnEvent(EventNameWindowEventReadyToShow, l, false)
+}
+
+// UpdateCustomOptions updates the window custom options
+func (w *Window) UpdateCustomOptions(o WindowCustomOptions) (err error) {
+	if err = w.ctx.Err(); err != nil {
+		return
+	}
+	w.m.Lock()
+	w.o.Custom = &o
+	w.m.Unlock()
+	_, err = synchronousEvent(w.ctx, w, w.w, Event{WindowOptions: w.o, Name: EventNameWindowCmdUpdateCustomOptions, TargetID: w.id}, EventNameWindowEventUpdatedCustomOptions)
+	return
 }
